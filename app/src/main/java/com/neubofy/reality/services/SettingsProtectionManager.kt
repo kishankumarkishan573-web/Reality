@@ -153,6 +153,11 @@ class SettingsProtectionManager(
                 am.killBackgroundProcesses(service.lastWindowPackage) // Kill whatever settings package
             } catch (e: Exception) {}
             service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
+
+            if (durationSecs <= 0) {
+                TerminalLogger.log("PENALTY: Penalty overlay disabled (duration <= 0s)")
+                return
+            }
             
             val windowManager = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             val params = WindowManager.LayoutParams(
@@ -230,8 +235,12 @@ class SettingsProtectionManager(
     private fun calculatePenaltyDuration(): Int {
         val now = System.currentTimeMillis()
         val strictData = service.savedPreferencesLoader.getStrictModeData()
+
+        if (!strictData.isPenaltyTimeEnabled) {
+            return 0
+        }
+
         val resetIntervalMs = (strictData.overlayResetIntervalMins.takeIf { it > 0 } ?: 5) * 60 * 1000L
-        val baseDuration = strictData.overlayBaseDurationSecs.takeIf { it > 0 } ?: 30
         
         if (now - service.learnedSettingsPages.lastPenaltyTime < resetIntervalMs) {
             service.learnedSettingsPages.consecutiveAttempts++
@@ -243,14 +252,19 @@ class SettingsProtectionManager(
             service.savedPreferencesLoader.saveLearnedSettingsPages(service.learnedSettingsPages)
         }
         
-        // Escalating penalties based on baseDuration up to 300s (5 min max limit)
-        val calculated = when (service.learnedSettingsPages.consecutiveAttempts) {
-            1 -> baseDuration
-            2 -> baseDuration * 2
-            3 -> baseDuration * 4
-            4 -> baseDuration * 6
-            else -> 300
+        val attemptPenalties = strictData.attemptPenaltiesMins.ifEmpty { listOf(5, 6, 8) }
+        val attemptIdx = service.learnedSettingsPages.consecutiveAttempts - 1
+
+        val mins = if (attemptIdx < attemptPenalties.size) {
+            attemptPenalties[attemptIdx]
+        } else {
+            // Escalation formula for nth attempt beyond configured list (e.g. +2 mins per attempt)
+            val lastPenalty = attemptPenalties.last()
+            val extraAttempts = attemptIdx - (attemptPenalties.size - 1)
+            lastPenalty + (extraAttempts * 2)
         }
-        return calculated.coerceAtMost(300)
+
+        val calculatedSecs = mins * 60
+        return calculatedSecs
     }
 }
