@@ -566,9 +566,12 @@ class AppBlockerService : BaseBlockingService() {
         lastBlockedPackage = packageName
         lastBlockTime = System.currentTimeMillis()
         
+        // Block multi-window/split-screen/mini-window attempts by returning to HOME
+        performGlobalAction(GLOBAL_ACTION_HOME)
+
         // Show Strict Mode Mindful Overlay Screen
         handler.post {
-            settingsProtectionManager.showPenaltyOverlay(reason ?: "Blocked by Reality")
+            settingsProtectionManager.showPenaltyOverlay(reason ?: "Blocked by Prevail")
         }
         
         lastPackage = ""

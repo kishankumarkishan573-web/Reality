@@ -339,6 +339,30 @@ class StrictModeActivity : BaseActivity() {
         }
 
         
+        // --- Penalty Time Settings ---
+        binding.switchPenaltyTime.isChecked = strictData.isPenaltyTimeEnabled
+        val currentDurations = strictData.attemptPenaltiesMins.ifEmpty { listOf(5, 6, 8) }
+        binding.tvPenaltyStatus.text = "Attempts: " + currentDurations.mapIndexed { idx, m -> "${idx + 1}${getOrdinalSuffix(idx + 1)}=${m}m" }.joinToString(", ")
+
+        binding.switchPenaltyTime.setOnCheckedChangeListener { _, isChecked ->
+            if (strictData.isEnabled && !isChecked) {
+                binding.switchPenaltyTime.isChecked = true
+                Toast.makeText(this, "Cannot disable penalty time while Strict Mode is active!", Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+            strictData.isPenaltyTimeEnabled = isChecked
+            prefsLoader.saveStrictModeData(strictData)
+            sendBroadcast(Intent(AppBlockerService.INTENT_ACTION_REFRESH_FOCUS_MODE).apply { setPackage(packageName) })
+        }
+
+        binding.btnConfigurePenalty.setOnClickListener {
+            if (strictData.isEnabled) {
+                Toast.makeText(this, "Cannot change attempt durations while Strict Mode is active!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            showPenaltyDurationsDialog()
+        }
+
         // --- Custom Page/Button Buttons ---
         binding.btnAddCustomPage.setOnClickListener {
             if (strictData.isEnabled) {
@@ -1267,5 +1291,53 @@ class StrictModeActivity : BaseActivity() {
         updateLearningStatus()
         
         Toast.makeText(this, "✓ All learned data has been reset", Toast.LENGTH_LONG).show()
+    }
+
+    private fun getOrdinalSuffix(n: Int): String {
+        val lastTwo = n % 100
+        if (lastTwo in 11..13) return "th"
+        return when (n % 10) {
+            1 -> "st"
+            2 -> "nd"
+            3 -> "rd"
+            else -> "th"
+        }
+    }
+
+    private fun showPenaltyDurationsDialog() {
+        val input = android.widget.EditText(this).apply {
+            hint = "e.g., 5,6,8"
+            val current = strictData.attemptPenaltiesMins.ifEmpty { listOf(5, 6, 8) }
+            setText(current.joinToString(","))
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+
+        val container = android.widget.FrameLayout(this).apply {
+            setPadding(48, 24, 48, 24)
+            addView(input)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Set Attempt Penalty Durations (minutes)")
+            .setMessage("Enter comma-separated minutes for attempts (1st, 2nd, 3rd...):")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                val text = input.text.toString().trim()
+                val parsed = text.split(",")
+                    .mapNotNull { it.trim().toIntOrNull() }
+                    .filter { it > 0 }
+
+                if (parsed.isNotEmpty()) {
+                    strictData.attemptPenaltiesMins = parsed
+                    prefsLoader.saveStrictModeData(strictData)
+                    binding.tvPenaltyStatus.text = "Attempts: " + parsed.mapIndexed { idx, m -> "${idx + 1}${getOrdinalSuffix(idx + 1)}=${m}m" }.joinToString(", ")
+                    sendBroadcast(Intent(AppBlockerService.INTENT_ACTION_REFRESH_FOCUS_MODE).apply { setPackage(packageName) })
+                    Toast.makeText(this, "Penalty durations updated", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Invalid input. Please enter numbers like 5,6,8", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }

@@ -32,7 +32,7 @@ class Constants {
     data class BedtimeData(
         var isEnabled: Boolean = false,
         var startTimeInMins: Int = 1320, // 22:00 (10 PM)
-        var endTimeInMins: Int = 420,    // 07:00 (7 AM)
+        var endTimeInMins: Int = 540,    // 09:00 (9 AM)
         var blockedApps: HashSet<String> = hashSetOf()
     )
     
@@ -109,6 +109,10 @@ class Constants {
         var overlayResetIntervalMins: Int = 5,
         var overlayBaseDurationSecs: Int = 30,
         var isOverlayConfigLocked: Boolean = true,
+
+        // Penalty Time Configuration
+        var isPenaltyTimeEnabled: Boolean = true,
+        var attemptPenaltiesMins: List<Int> = listOf(5, 6, 8)
 
     ) {
         companion object {
