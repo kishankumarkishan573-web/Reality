@@ -276,10 +276,10 @@ object BlockCache {
                         addToBox(newBox, limit.packageName, "Daily Limit Reached (${limit.limitInMinutes}m)")
                     }
                     
-                    // Check if outside active hours
+                    // Check if outside active hours (Allowed Time Zone)
                     if (limit.activePeriodsJson.isNotEmpty() && limit.activePeriodsJson.length > 5) {
                         if (!isWithinActivePeriod(limit.activePeriodsJson, currentMins)) {
-                            addToBox(newBox, limit.packageName, "Outside Active Hours")
+                            addToBox(newBox, limit.packageName, "Outside Allowed Time Zone")
                         }
                     }
                 }

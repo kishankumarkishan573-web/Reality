@@ -40,7 +40,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Active Periods"
+            android:text="Allowed Time Zone (Start - End)"
             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
             android:textColor="?attr/colorOnSurface"
             android:layout_marginTop="24dp"/>
@@ -48,7 +48,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="App will only be blocked during these times (if limit exceeded). Leave empty for always active."
+            android:text="The app can only be used during this selected time zone. Outside this start-to-end time, the app will be blocked. Leave empty for always allowed."
             android:textAppearance="@style/TextAppearance.Material3.BodySmall"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginBottom="8dp"/>
@@ -62,7 +62,7 @@
             android:id="@+id/btnAddPeriod"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Add Period"
+            android:text="Select Time Zone (Start - End)"
             style="@style/Widget.Material3.Button.TextButton"/>
 
         <com.google.android.material.checkbox.MaterialCheckBox

@@ -170,7 +170,8 @@ class AppBlockerService : BaseBlockingService() {
         if (eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED &&
-            eventType != AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            eventType != AccessibilityEvent.TYPE_VIEW_FOCUSED &&
+            eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             return
         }
         
@@ -622,8 +623,8 @@ class AppBlockerService : BaseBlockingService() {
         try {
             val info = serviceInfo ?: return
 
-            // Base events we ALWAYS need for core functionality (app switching detection)
-            var events = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        // Base events we ALWAYS need for core functionality (app switching detection & window changes)
+        var events = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED
 
             val isSettingsPackage = packageName?.let { it.contains("settings") || it.contains("securitycenter") } ?: false
             val isBrowser = packageName?.let { com.neubofy.reality.utils.UrlDetector.isBrowser(it) } ?: false
@@ -639,8 +640,10 @@ class AppBlockerService : BaseBlockingService() {
                          AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
             }
 
-            if (info.eventTypes != events) {
+            var updatedFlags = info.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            if (info.eventTypes != events || info.flags != updatedFlags) {
                 info.eventTypes = events
+                info.flags = updatedFlags
                 serviceInfo = info
                 com.neubofy.reality.utils.TerminalLogger.log("A11Y: Updated dynamic events mask to $events for pkg $packageName")
             }
@@ -753,6 +756,24 @@ class AppBlockerService : BaseBlockingService() {
         if (!isBlockingActive) return
         
         try {
+            // Check all active interactive windows (handles split-screen, picture-in-picture, floating/mini windows)
+            val activeWindows = try { windows } catch (e: Exception) { null }
+            if (!activeWindows.isNullOrEmpty()) {
+                for (window in activeWindows) {
+                    val windowRoot = window.root ?: continue
+                    val pkg = windowRoot.packageName?.toString() ?: continue
+                    if (pkg.isEmpty() || pkg == packageName || pkg == "com.android.systemui") continue
+
+                    val (shouldBlock, reasons) = com.neubofy.reality.utils.BlockCache.shouldBlock(pkg)
+                    if (shouldBlock) {
+                        val reason = reasons.joinToString(", ")
+                        com.neubofy.reality.utils.TerminalLogger.log("WATCHDOG MultiWindow: Caught $pkg in window type ${window.type}")
+                        handleBlock(pkg, reason)
+                        return
+                    }
+                }
+            }
+
             var pkg = rootInActiveWindow?.packageName?.toString()
             if (pkg == null) {
                 // Fallback to the last known foreground package if root is null (e.g., full screen media)
